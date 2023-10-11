@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "sbh_lmb",
-    "slug": "sbh_lmb",
+    "name": "RoBros",
+    "slug": "RoBros",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.aakarsh12.sbh_lmb"
+      "package": "com.aakarsh12.robros"
     },
     "web": {
       "favicon": "./assets/favicon.png"

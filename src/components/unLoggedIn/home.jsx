@@ -46,7 +46,7 @@ const StaticHomeScreen = ({ navigation }) => {
   useEffect(() => {
     const getData = async () => {
       try {
-        // await AsyncStorage.setItem('token', null)
+        // await AsyncStorage.setItem('tokren', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NGI4YjE0MTM5ZWRiNjYwMzE0ZjM3OTkiLCJpYXQiOjE2OTAyMTUzNTF9.SdWImSNIvHL32eGWbgKyA2y61OhPOVmFWpLv4VuUNgc')
         const value = await AsyncStorage.getItem('token');
         console.log(value);
         setToken(value);
