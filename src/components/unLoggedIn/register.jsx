@@ -30,7 +30,7 @@ const register = async (email, password, username, navigation) => {
   try {
     console.log(email+username+password)
     const response = await axios.post(`${BASE_URL}/auth/register`, { email, password, username });
-    if(response.status != 400) {
+    if(response.status == 400) {
     console.log(response.data);
     return;
     }

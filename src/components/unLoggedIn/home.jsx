@@ -8,12 +8,13 @@ import {
   Dimensions,
   Button,
   Text,
+
 } from 'react-native';
 
 import * as Font from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import commonStyles from './../../../styles';
+import commonStyles from '../../../styles';
 
 const bg = require('./../../../assets/bg.png');
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,7 +47,7 @@ const StaticHomeScreen = ({ navigation }) => {
   useEffect(() => {
     const getData = async () => {
       try {
-        // await AsyncStorage.setItem('tokren', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NGI4YjE0MTM5ZWRiNjYwMzE0ZjM3OTkiLCJpYXQiOjE2OTAyMTUzNTF9.SdWImSNIvHL32eGWbgKyA2y61OhPOVmFWpLv4VuUNgc')
+        await AsyncStorage.setItem('token', null)
         const value = await AsyncStorage.getItem('token');
         console.log(value);
         setToken(value);
@@ -73,7 +74,7 @@ const StaticHomeScreen = ({ navigation }) => {
         <ScrollView>
           <View style={[commonStyles.container, commonStyles.body, { height: windowHeight }]}>
             <View style={commonStyles.topbar}>
-              <Text style={commonStyles.title}>Assisted Settlements</Text>
+              <Text style={commonStyles.title}>RoBros</Text>
             </View>
             <View style={commonStyles.content}>
               <Text style={[commonStyles.heading, {fontSize: 48, marginTop: windowHeight/10.0}]}>
