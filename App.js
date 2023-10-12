@@ -16,7 +16,7 @@ import {
   Text
 } from 'react-native';
 
-import { useEffect } from 'react'
+import {useEffect} from 'react'
 
 import StaticHomeScreen from './src/components/unLoggedIn/home';
 import ChooseComponent from './src/components/unLoggedIn/choose';
@@ -87,8 +87,6 @@ function Home({navigation}) {
   );
 }
 
-
-
 function Error({navigation}) {
   return (
     <ImageBackground source={particle} style={styles.bg}>
@@ -116,7 +114,6 @@ function GardenPage({navigation}) {
     </View>
   );
 }
-
 
 function DevicesPage({navigation}) {
   return (
@@ -146,8 +143,8 @@ function Logout({navigation}) {
   );
 }
 
-import { useFonts } from 'expo-font';
-import { useCallback } from 'react';
+import {useFonts} from 'expo-font';
+import {useCallback} from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import Garden from './src/components/loggedIn/gardenPage';
 
@@ -156,17 +153,16 @@ SplashScreen.preventAutoHideAsync();
 export default function App({navigation}) {
 
   const clearCache = async () => {
-  try {
-    await AsyncStorage.clear();
-    console.log('AsyncStorage cache cleared successfully.');
-  } catch (error) {
-    console.error('Error clearing AsyncStorage cache:', error);
-  }
-};
-            // clearCache()
+    try {
+      await AsyncStorage.clear();
+      console.log('AsyncStorage cache cleared successfully.');
+    } catch (error) {
+      console.error('Error clearing AsyncStorage cache:', error);
+    }
+  };
 
   const [fontsLoaded, error] = useFonts({
-    'SF-Pro': require('./assets/fonts/VelaSans-Medium.otf'),
+    'SF-Pro': require('./assets/fonts/SF-Pro.ttf'),
     'VelaSans-Medium': require('./assets/fonts/VelaSans-Medium.otf'),
     'VelaSans-Bold': require('./assets/fonts/VelaSans-Bold.otf'),
     'LemonMilk-Regular': require('./assets/fonts/LemonMilk-Regular.otf'),

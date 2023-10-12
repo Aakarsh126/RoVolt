@@ -1,11 +1,11 @@
 import React from 'react';
 
-import {View, StyleSheet,Dimensions} from 'react-native';
+import {View, StyleSheet, Dimensions} from 'react-native';
 
 import {Text} from 'react-native-elements';
-import { Feather } from '@expo/vector-icons'; 
+import {Feather} from '@expo/vector-icons'; 
+import {Color} from 'react-native-elements/dist/helpers';
 
-import {color} from 'react-native-elements/dist/helpers';
 const windowHeight = Dimensions.get('window').height;
 const selectedIcon = '#fff';
 const icon = '#9D9D9D';
