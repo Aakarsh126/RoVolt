@@ -1,0 +1,169 @@
+# RoVolt
+# Aakarsh Garg
+# Multi-Purpose Hexapod Rover
+# Raspberry Pi Pico W
+
+import machine
+import network
+import time
+import urequests as requests
+import json
+import framebuf
+import ssd1306
+
+from saved_networks import networks
+
+#Status LED
+led_builtin = machine.Pin("LED", machine.Pin.OUT)
+led_builtin.value(1)
+
+#Pin configuration
+onboard_temperature_sensor = machine.ADC(4) #RP2040 chip onboard temperature sensor
+#speed_pin[Left, Right][1, 2, 3]
+speed_pin = [[machine.PWM(machine.Pin(12)), machine.PWM(machine.Pin(11)), machine.PWM(machine.Pin(14))], #Left 1, 2, 3
+         [machine.PWM(machine.Pin(13)), machine.PWM(machine.Pin(10)), machine.PWM(machine.Pin(15))]] #Right 1, 2, 3
+#direction_pin[Left, Right][1, 2, 3][a, b] (on Pico W 2)
+direction_pin = [[[18, 19], [7, 6], [12, 13]], #Left 1, 2, 3
+            [[17, 16], [8, 9], [14, 15]]] #Right 1, 2, 3
+#encoder_pin[Left, Right][1, 2, 3][a, b]
+encoder_pin = [[[machine.Pin(2, machine.Pin.IN), machine.Pin(3, machine.Pin.IN)], [machine.Pin(8, machine.Pin.IN), machine.Pin(9, machine.Pin.IN)], [machine.Pin(19, machine.Pin.IN), machine.Pin(18, machine.Pin.IN)]], #Left
+         [[machine.Pin(6, machine.Pin.IN), machine.Pin(7, machine.Pin.IN)], [machine.Pin(27, machine.Pin.IN), machine.Pin(26, machine.Pin.IN)], [machine.Pin(20, machine.Pin.IN), machine.Pin(21, machine.Pin.IN)]]] #Right
+a_light = machine.PWM(machine.Pin(1)) #GP1
+headlight = machine.PWM(machine.Pin(0)) #GP0
+uart = machine.UART(1, baudrate=9600, tx=machine.Pin(4), rx=machine.Pin(5))
+i2c = machine.I2C(0, scl = machine.Pin(17), sda = machine.Pin(16), freq=400000)
+
+#Set PWM frequencies
+for i in range(2):
+    for j in range(3):
+        speed_pin[i][j].freq(1000)
+a_light.freq(1000)
+headlight.freq(1000)
+
+#Lights on :)
+a_light.duty_u16(224 ** 2)
+headlight.duty_u16(224 ** 2)
+
+#Function to move in direction with 8 bit speed
+def move(direction, speed):
+    print(direction)
+    if direction == "forward":
+        for i in range(2):
+            for j in range(3):
+                uart.write(bytearray([direction_pin[i][j][0], 1]))
+                uart.write(bytearray([direction_pin[i][j][1], 0]))
+    elif direction == "backward":
+        for i in range(2):
+            for j in range(3):
+                uart.write(bytearray([direction_pin[i][j][0], 0]))
+                uart.write(bytearray([direction_pin[i][j][1], 1]))
+    elif direction == "left":
+        for i in range(3):
+            uart.write(bytearray([direction_pin[0][i][0], 0]))
+            uart.write(bytearray([direction_pin[0][i][1], 1]))
+        for i in range(3):
+            uart.write(bytearray([direction_pin[1][i][0], 1]))
+            uart.write(bytearray([direction_pin[1][i][1], 0]))
+    elif direction == "right":
+        for i in range(3):
+            uart.write(bytearray([direction_pin[0][i][0], 1]))
+            uart.write(bytearray([direction_pin[0][i][1], 0]))
+        for i in range(3):
+            uart.write(bytearray([direction_pin[1][i][0], 0]))
+            uart.write(bytearray([direction_pin[1][i][1], 1]))
+    for i in range(2):
+        for j in range(3):
+            speed_pin[i][j].duty_u16(speed ** 2)
+    if direction == "nothing":
+        for i in range(2):
+            for j in range(3):
+                speed_pin[i][j].duty_u16(0)
+move("forward", 0) #Initializing motors for movement
+
+#Display
+oled = ssd1306.SSD1306_I2C(128, 64, i2c, addr=0x3C)
+la_martiniere_logo = bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc0\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x01@\x00\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x01\xa0\x00\x00\x14\x05@(\x00\x00=\x00\x01|\x00\x00B\xb0+D\x00\x00\xfd\x00\x01\x7f\x00\x00\x00\x00\x00\x00\x00\x07\xfdp\x01\x7f\xc0\x02\x00\x00\x10\x01\x00\x1b\xfc\x80\x01\x7f\xb0\x00\x00\x01P\x00@q\xf3\x80\x01\xbf<\x02\x00\x02 \x00\x01\xe5\xcd\x80\t~O\x00\x00) \x00\x87\xc8=\x00\x05~/\xe2\x00\x04\x80\x00\x9f\xd2\xff\x00\x03\x1e\x9f\xf8\x00\t@\x00\x7f\xe5\xfdp\x02\xe4O\xfa\x00R \x00\x7f\x9f\xf9@\x02\xf9\'\xf8\x00\x08\x00 >s\xf5\x80\x03~\x8f\xf2\x00"\xa0\x00\x9c\xe1\xcf\x80\x01\xff\xcf\xf0\x00D\xc0`\x03\xe4=\x00\x01\xff\xf3\xf2\x00\t$\x12/\xc9\xff@\x00\xff8\xf0\x04\x04\xa2\xa8\x7f\xe7\xfe \n\xfe\x1f\x10\x00\x02\x81J\x7f\xcf\xfd\xc0\x02~_\xc2\x00\x05\xa2\x94\x1f;\xf2\x80\x03\x9c\x9f\xf8Q\x08Q!<\xe1\xcf\x00\x01\xe5O\xf4@\x02$J\x13\xe4?\xa0\t\xf8/\xe1R*\x92(\x8f\xc9\xff@\x05\xff\x0f\xeaH\x95b\x95\x7f\xe7\xff\x80!\xff\xef\xe2\xaeT\x88\xa2?\xcf\xff\x04\x01\xff\xb1\xe4\xa8\xa0&\x9a\xbf;\xff H\xff\x1cb\x10J\xaaU\x1c\xf1\xff\x04\t\xfe_\x84\x85!\x11H\x13\xe5\xfe @\xfc/\xf2 \x94\xac"O\xc0\xfe$H\xfdO\xf4\x94II\t?\xd5\xfcT\x00\xfc/\xe2\x02\x92(\xa0\x7f\xc5\xf8\x00\x00}_\xd4T*\xaa\n_\xd1\xf0\x00\x00<\x1f\x81\x01*\xa9Q_\xca\xf0\x00\x00>\xafRT\x84\x92\x08G\xc5\xe0\x00\x00\x1e\x7f\x01\x02 \x00\xa2\'\xeb\xc0\x00\x00\x1f<\x00\xa8\x95T\t\x01\xe7\xc0\x00\x00\x0f|\x00$@\x02\xa4\x01\xf7\x80\x00\x00\x078\x00\n\x95T\x00\x00\xe7\x80\x00\x00\x02\xd0\x00\x00@\x10\x00\x00k\x00\x00\x00\x03\xe0\x00\x00\x1a\xc0\x00\x00?\x00\x00\x00\x01\xc0\x00\x00\x02\x00\x00\x00\x1c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\xfa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1f\xb7\xfa\x00\x00\x00\x00\xaf\xff\x80\x00\x00\x1b\xbd\xb7t\x80\x00\xbf\xff\x97\xe0\x00\x007\xb6\xed\xdf\xff\xff\xd9\x9a\xfap\x00\x00;\xb5kz\x9e\xdbo\xd9\xb6\xf0\x00\x007\xdfv\xeb\xfb\xb5\x9d\xdd\xdbp\x00\x00:k\xebw\xad\xec\xed\xae\xf6\xe0\x00\x00\x1a\x89_\xfb\xdb\xb6\xef\xf7\xbb\xf0\x00\x00\x17\xa2\x125\xfe\xdf\xbdH\x8a\xe0\x00\x00\x17\xc0\x00\x8aU\xeb@\x90\x1f@\x00\x00\x0f\xe0\x00\x00\x04\x90*\x00?\xa0\x00\x00\x1f\xf0\x00\x00\x00\x00\x00\x00?\xc0\x00\x00\x0f\xf0\x00\x00\x00\x00\x00\x00\x7f\xa0\x00\x00\x07\xf8\x00\x00\x00\x00\x00\x00\xff@\x00\x00\x01\xf8\x00\x00\x00\x00\x00\x01\xfe\x00\x00\x00\x00\xf4\x00\x00\x00\x00\x00\x00\xfc\x00\x00\x00\x00`\x00\x00\x00\x00\x00\x01x\x00\x00\x00\x00P\x00\x00\x00\x00\x00\x000\x00\x00\x00\x00 \x00\x00\x00\x00\x00\x00H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00')
+brightbytes_logo = bytearray(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xee\xee\xee\xee\xee\x80;\xbb\xff\xfe\xff\xff\xf8\x00\x0f\xff\xff\xfc\xff\xff\xe8\x00\x0f\xff\xdb\xb4\xed\xb7@\x00\x03\xb7\xff\xfc\xff\xff\x8a\x00\x03\xff\xff\xfc\xff\xfe?\x00\x01\xfe\xfd\xd8\x7f\xf8\xff\xc0\x01\xfb\xdf\xf8m\xa3\xff\xe0\x01\xbf\xff\xf8?\xcf\xfb\xe0\x00\xff\xfb\xb8\x0e\x0f\xef\xf0\x00\xff\xef\xf8\x00\x1f\xbfp\x00\xf7\xff\xf8\x00=\xff\xf8\x00\xff\xff\xb8\x00?A\xf8\x00\xfe\xfd\xf8\x00~\x03\xe8\x00\xf7\xdf\xf8\x00\xfa\x03\xf8\x00\xff\xff\xf8\x01\xfc\x07\xb8\x00\xff\xff\xb8\x01\xf8\x07\xf8\x00\xef\xf6\xf8\x03\xd8\x0f\xf8\x01\xff\xdf\xfc\x07\xf8\x0f\xf0\x01\xfd\xff\xfc\x0f\xf0\x1e\xd0\x03\xff\xff\xee\x1f\xe0\x1f\xf8\x03\xdf\xff\xbf\xfe\xe0?\xf0\x07\xff\xf7\xff\xff\xe0;\xe0\x0f\xfd\xff\xff\xff\xc0\x7f\xe0\x1fw\xde\xff\xf7\xc0\x7f`=\xff\xff\xf6\xff@\x7f\xc0\xff\xff\xff\xff\xff\x80\xf7\x83\xff\xff\xff\xdf\xef\x01\xea\x0f\xef\xff\xfb\xff\xff\x01\xc0\xff\xbf\xb7\xef\xff\xbe\x01\xc0\x00\xfe\xff\xff\xfe\xfe\x03\xc5\xe0\x1f\xff\xff\xbb\xfc\x03\xff\xf8\x07\xff\xff\xff\xf8\x07\xff|\x03\xfd\xfd\xff\xf8\x07\xf0\x1c\x03\xff\xef\xff\xf0\x0f@\x0e\x01\xdf\xff\xff\xe0\x0f\x00\x06\x00\xff\xff\xee\xc0\x0c\x00\x06\x00\xff\xff\xbf\x80\x1c\x00\x06\x00\xfd\xfe\xfe\x000\x00\x06\x00\x7f\xef\xf8\x00 \x00\x06\x00\x7f\xff\x80\x00 \x00\x0c\x00\x7f\xff\x80\x00@\x00\x0c\x00{\xff\x80\x00\x80\x00\x1c\x00\x7f\xff\x80\x00\x80\x00\x18\x00\x7f\xf7\x80\x00\x00\xfc8\x00\x7f\xff\x00\x01\x07\xfep\x00\x7f\xff\x80\x02\x1f\xfe`\x00\x7f\xff\x00\x02?\xfe\xe0\x00\xfd\xff\x00\x06\x7f\xfd\xc0\x00\x7f\xf7\x00\x06\xfd\xdf\x00\x00\xff\xff\x00\x0e\xff\xfe\x00\x01\xff\xff\x00\x1e\xff\xf8\x00\x01\xff\xfe\x00\x1eo\xe0\x00\x03\xfb\xff\x00?\x1e\x80\x00\x03\xff\xfe\x00\x7f\x80\x00\x00\x07\xef\xf6\x00\xff\xc0\x00\x00\x1f\xff\xfe\x01\xff\xe0\x00\x00?\xff\xfe\x07\xff\xf8\x00\x00\xff\xff\xfe\x1f\xff\xfe\x00\x03\xff\xff\xfe\xff\xff\xff\xd0\xbf\xff\x7f\xff\xff\xff\xff\xff\xff\xef\xff\xef\xff\xfbo\xff\xff\xbf\xf7')
+
+def set_display(display):
+    global fb
+    if display == 'lmb':
+        fb = framebuf.FrameBuffer(la_martiniere_logo, 95, 64, framebuf.MONO_HLSB)
+        oled.fill(0)
+        oled.blit(fb, 16, 0)
+    if display == 'bbi':
+        fb = framebuf.FrameBuffer(brightbytes_logo, 64, 64, framebuf.MONO_HLSB)
+        oled.fill(0)
+        oled.blit(fb, 32, 0)
+    oled.show()
+set_display('lmb')
+
+#Connecting to WiFi
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+
+#Scanning for available networks and sorting by signal strength
+available_networks_bytes = wlan.scan()
+available_networks_bytes = sorted(available_networks_bytes, key=lambda x: -x[3])
+available_networks = [{"ssid": n[0].decode("utf-8"), "bssid": ":".join("{:02x}".format(b) for b in n[1]), "channel": n[2], "rssi": n[3]}
+                      for n in available_networks_bytes]
+
+# Finding the saved network with the strongest signal
+strongest_network = None
+strongest_signal = -1000
+for network in networks:
+    ssid = network["ssid"]
+    for available_network in available_networks:
+        if available_network["ssid"] == ssid:
+            signal_strength = available_network["rssi"]
+            if signal_strength > strongest_signal:
+                strongest_network = network
+                strongest_signal = signal_strength
+
+# Connecting to the network with the strongest signal
+max_wait = 600
+if strongest_network is not None:
+    ssid = strongest_network["ssid"]
+    password = strongest_network["password"]
+    print("connecting to network:", ssid)
+    wlan.connect(ssid, password)
+    for _ in range(max_wait):
+        if wlan.status() < 0 or wlan.status() >= 3:
+            break
+        print('waiting for connection...')
+        time.sleep(1)
+    #Handle connection error
+    if wlan.status() != 3:
+        raise RuntimeError('network connection failed')
+    else:
+        print("connected to network:", ssid)
+        status = wlan.ifconfig()
+        print('ip:', status[0])
+else:
+    print("no saved network available")
+
+#Timers
+timer_movement = machine.Timer()
+
+def movement(timer):
+    #Defining headers and payloads
+    url = "http://192.168.0.100:3000/record/getDirection"
+    headers = {"Content-Type": "application/json", "Authorization": "188534093"} # type: ignore
+
+    #Sending POST request
+    response = requests.get(url, headers=headers)
+    print(response.text)
+    if response.status_code == 200:
+        print('sensor data logged successfully')
+    else:
+        print('error logging sensor data:', response.status_code)
+    response_json = response.json()
+    print(response_json)
+    move(response_json['movement'], 255)
+    # move_arm(response_json['arm'])
+    # if(response_json['seed']):
+    #     plant_seed()
+    set_display(response_json['display'])
+    response.close()
+
+timer_movement.init(freq=10, mode=machine.Timer.PERIODIC, callback=movement)
